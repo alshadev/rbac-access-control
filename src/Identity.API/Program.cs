@@ -2,17 +2,46 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Identity.API.Infrastructure;
 using Identity.API.Infrastructure.Services;
+using Identity.API.Middlewares;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c => 
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter your valid token in the text input below.\n\nExample: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+});
 
 builder.Services.AddControllers().AddJsonOptions(options => 
 {
@@ -33,6 +62,8 @@ builder.Services.AddDbContext<IdentityContext>(options =>
 
 builder.Services.AddScoped<IDbSeeder<IdentityContext>, IdentityContextSeed>();
 
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -50,7 +81,16 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("542c619a-0aac-4e14-a620-79afcca31ec2")) //change to read it from appsettings/configuration for best practice 
     };
 });
-builder.Services.AddAuthorization();
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("DynamicPolicy", policy =>
+    {
+        policy.Requirements.Add(new RoleOrPermissionRequirement(Array.Empty<string>(), string.Empty));
+    });
+});
+builder.Services.AddSingleton<IAuthorizationHandler, RoleOrPermissionHandler>();
+
 
 builder.Services.AddOptions();
 
