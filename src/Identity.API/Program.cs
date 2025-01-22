@@ -31,6 +31,8 @@ builder.Services.AddDbContext<IdentityContext>(options =>
     options.ConfigureWarnings(x => x.Ignore(RelationalEventId.AmbientTransactionWarning));
 });
 
+builder.Services.AddScoped<IDbSeeder<IdentityContext>, IdentityContextSeed>();
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -81,6 +83,7 @@ using (var scope = app.Services.CreateScope())
         Task.Run(async () =>
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IdentityContext>();
+            var seed = scope.ServiceProvider.GetRequiredService<IDbSeeder<IdentityContext>>();
 
             logger.LogInformation("Migrating database associated with context {DbContextName}", typeof(IdentityContext).Name);
 
@@ -89,6 +92,7 @@ using (var scope = app.Services.CreateScope())
             await strategy.ExecuteAsync(async () =>
             {
                 await dbContext.Database.MigrateAsync();
+                await seed.SeedAsync(dbContext);
             });
         }).Wait();
 
