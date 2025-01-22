@@ -1,5 +1,6 @@
 using Identity.API.Entities;
 using Identity.API.Infrastructure;
+using Identity.API.Infrastructure.Services;
 using Identity.API.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +12,42 @@ namespace Identity.API.Controllers
     public class IdentityController : ControllerBase
     {
         private readonly IdentityContext _context;
+        private readonly ITokenService _tokenService;
 
-        public IdentityController(IdentityContext context)
+        public IdentityController(IdentityContext context, ITokenService tokenService)
         {
+            _tokenService = tokenService;
             _context = context;
+        }
+
+        [HttpPost("Login")]
+        public async Task<IActionResult> Post([FromBody] LoginRequest request)
+        {
+            var user = await _context
+                .Users
+                .FirstOrDefaultAsync(x => x.Username == request.Username && x.Password == request.Password);
+
+            if (user == null)
+            {
+                return Unauthorized("Invalid username password.");
+            }
+
+            var roles = await _context
+                .UserRoles
+                .Where(x => x.UserId == user.Id)
+                .Select(x => x.Role)
+                .ToListAsync();
+
+            var permissions = await _context
+                .RolePermissions
+                .Where(x => roles.Select(r => r.Id).Contains(x.RoleId))
+                .Select(x => x.Permission.Name)
+                .Distinct()
+                .ToListAsync();
+
+            var token = _tokenService.GenerateToken(user.Username, roles.Select(x => x.Name).Distinct(), permissions);
+
+            return Ok(token);
         }
 
         [HttpGet("Users")]

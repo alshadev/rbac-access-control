@@ -1,7 +1,11 @@
+using System.Text;
 using System.Text.Json.Serialization;
 using Identity.API.Infrastructure;
+using Identity.API.Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,7 +31,28 @@ builder.Services.AddDbContext<IdentityContext>(options =>
     options.ConfigureWarnings(x => x.Ignore(RelationalEventId.AmbientTransactionWarning));
 });
 
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = "IdentityIssuer", //change to read it from appsettings/configuration for best practice 
+        ValidAudience = "IdentityAudience", //change to read it from appsettings/configuration for best practice 
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("542c619a-0aac-4e14-a620-79afcca31ec2")) //change to read it from appsettings/configuration for best practice 
+    };
+});
+builder.Services.AddAuthorization();
+
 builder.Services.AddOptions();
+
+builder.Services.AddSingleton<ITokenService, TokenService>();
 
 var app = builder.Build();
 
