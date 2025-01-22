@@ -29,12 +29,18 @@ public class IdentityContext : DbContext, IDisposable
             .Property(x => x.Username).IsRequired();
         modelBuilder.Entity<User>()
             .Property(x => x.Password).IsRequired();
+        modelBuilder.Entity<User>()
+            .HasIndex(x => x.Username).IsUnique();
 
         modelBuilder.Entity<Role>()
             .Property(x => x.Name).IsRequired();
+        modelBuilder.Entity<Role>()
+            .HasIndex(x => x.Name).IsUnique();
         
         modelBuilder.Entity<Permission>()
             .Property(x => x.Name).IsRequired();
+        modelBuilder.Entity<Permission>()
+            .HasIndex(x => x.Name).IsUnique();
 
         modelBuilder.Entity<UserRole>()
             .HasKey(x => new { x.UserId, x.RoleId });
